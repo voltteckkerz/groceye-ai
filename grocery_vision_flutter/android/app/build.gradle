@@ -1,0 +1,82 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader("UTF-8") { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
+if (flutterVersionCode == null) {
+    flutterVersionCode = "1"
+}
+
+def flutterVersionName = localProperties.getProperty("flutter.versionName")
+if (flutterVersionName == null) {
+    flutterVersionName = "1.0"
+}
+
+android {
+    namespace = "com.groceryvision.grocery_vision_flutter"
+    compileSdk = 35
+    ndkVersion = "26.3.11579264"
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    defaultConfig {
+    applicationId = "com.grocervision.grocery_vision_flutter"
+    minSdkVersion = flutter.minSdkVersion
+    targetSdk = 35
+    versionCode = flutterVersionCode.toInteger()
+    versionName = flutterVersionName
+
+    ndk {
+        abiFilters "armeabi-v7a", "arm64-v8a"
+    }
+    }
+
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig = signingConfigs.debug
+        }
+    }
+
+    // Exclude conflicting 'litert' library (replacement for tensorflow-lite) from ML Kit
+    // This resolves the Duplicate Class error with tflite_flutter's tensorflow-lite
+    configurations {
+        all {
+            exclude group: 'com.google.ai.edge.litert', module: 'litert'
+            exclude group: 'com.google.ai.edge.litert', module: 'litert-api'
+        }
+    }
+
+    packagingOptions {
+    pickFirst "**/*.so"
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+// dependencies {
+//    // TensorFlow Lite for on-device inference
+//    implementation 'org.tensorflow:tensorflow-lite:2.14.0'
+//    implementation 'org.tensorflow:tensorflow-lite-support:0.4.4'
+// }

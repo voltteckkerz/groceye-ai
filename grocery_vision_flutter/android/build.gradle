@@ -1,0 +1,33 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+
+// Register the overwrite listener BEFORE evaluation triggers
+subprojects {
+    project.afterEvaluate {
+        if (it.hasProperty("android")) {
+            it.android {
+                if (namespace == null) {
+                    namespace it.group
+                }
+                compileSdkVersion 34
+            }
+        }
+    }
+}
+
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}

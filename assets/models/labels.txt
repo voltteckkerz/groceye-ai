@@ -1,0 +1,10 @@
+beverages
+bread
+canned_food
+chili_sauce
+cooking_oil
+fruit
+instant_noodle
+ketchup
+snack
+soy_sauce

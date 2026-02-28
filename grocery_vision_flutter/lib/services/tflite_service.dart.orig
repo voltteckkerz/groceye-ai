@@ -1,0 +1,301 @@
+import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
+import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
+import 'package:tflite_flutter/tflite_flutter.dart';
+import '../models/detection.dart';
+
+class TFLiteService {
+  static Interpreter? _yoloInterpreter;
+  static List<String> _yoloLabels = [];
+  static int _inputSize = 640;
+  
+  // Brand classification models
+  static final Map<String, Interpreter> _brandInterpreters = {};
+  static final Map<String, List<String>> _brandLabels = {};
+  
+  static const Map<String, String> _brandModelMap = {
+    "beverages": "beverages_brand_cnn.tflite",
+    "bread": "bread_brand_cnn.tflite",
+    "canned_food": "canned_food_brand_cnn.tflite",
+    "chili_sauce": "chili_sauce_brand_cnn.tflite",
+    "soy_sauce": "soy_sauce_brand_cnn.tflite",
+  };
+
+  static bool _isInitialized = false;
+  
+  // Method alias to match user expectation from deprecated tflite package
+  static Future<void> loadModel() async {
+    return initialize();
+  }
+
+  static Future<void> initialize() async {
+    if (_isInitialized) {
+      print('ℹ️ TFLite already initialized');
+      return;
+    }
+    
+    try {
+      print('📦 Initializing TFLite (Dart)...');
+      
+      // Load YOLO model
+      print('🔄 Loading YOLO model from assets/models/grocery_type_yolo.tflite...');
+      final options = InterpreterOptions();
+      _yoloInterpreter = await Interpreter.fromAsset('assets/models/grocery_type_yolo.tflite', options: options);
+      
+      // Get input shape
+      final inputTensor = _yoloInterpreter!.getInputTensor(0);
+      _inputSize = inputTensor.shape[1];
+      print('✅ YOLO Model loaded successfully. Input size: $_inputSize x $_inputSize');
+      
+      // Load YOLO labels
+      print('🔄 Loading labels from assets/models/grocery_type_labels.txt...');
+      final labelsData = await rootBundle.loadString('assets/models/grocery_type_labels.txt');
+      _yoloLabels = labelsData.split('\n').where((s) => s.trim().isNotEmpty).map((s) => s.trim()).toList();
+      print('✅ Loaded ${_yoloLabels.length} YOLO labels: $_yoloLabels');
+      
+      _isInitialized = true;
+      
+    } catch (e) {
+      print('❌ Failed to initialize TFLite: $e');
+      rethrow;
+    }
+  }
+
+  static Future<List<Detection>> detect(String imagePath) async {
+    if (_yoloInterpreter == null) {
+      print('⚠️ Interpreter not initialized, initializing now...');
+      await initialize();
+    }
+
+    try {
+      // 1. Load and Resize Image
+      final imageBytes = await File(imagePath).readAsBytes();
+      final originalImage = img.decodeImage(imageBytes)!;
+      final resizedImage = img.copyResize(originalImage, width: _inputSize, height: _inputSize);
+
+      // 2. Preprocess
+      final input = _preprocessImage(resizedImage);
+      
+      // 3. Run YOLO Inference
+      // YOLO output shape: [1, num_predictions, num_classes + 5]
+      final outputTensor = _yoloInterpreter!.getOutputTensor(0);
+      final shape = outputTensor.shape;
+      final numPredictions = shape[1];
+      final numValues = shape[2];
+      
+      // Initialize output buffer [1, num_predictions, num_values]
+      final output = List.generate(1, (_) => List.generate(numPredictions, (_) => List.filled(numValues, 0.0)));
+      
+      _yoloInterpreter!.run(input, output);
+      
+      // 4. Parse Results
+      final typeDetections = _parseYOLOOutput(
+        output[0], 
+        0.4, // Confidence threshold 
+        originalImage.width, 
+        originalImage.height
+      );
+      
+      // 5. Stage 2: Brand Classification
+      final finalDetections = <Detection>[];
+      
+      for (var detection in typeDetections) {
+        // Crop image using bbox [x, y, width, height]
+        final bbox = detection.bbox;
+        final x = bbox[0].toInt().clamp(0, originalImage.width - 1);
+        final y = bbox[1].toInt().clamp(0, originalImage.height - 1);
+        final w = bbox[2].toInt().clamp(1, originalImage.width - x);
+        final h = bbox[3].toInt().clamp(1, originalImage.height - y);
+        
+        final croppedImage = img.copyCrop(originalImage, x: x, y: y, width: w, height: h);
+        
+        // Classify brand
+        final brandResult = await _classifyBrand(croppedImage, detection.name);
+        
+        finalDetections.add(Detection(
+          name: detection.name,
+          brand: brandResult.key, // Brand name
+          confidence: detection.confidence,
+          bbox: detection.bbox,
+        ));
+      }
+      
+      return finalDetections;
+      
+    } catch (e, stack) {
+      print('❌ Detection error: $e');
+      print(stack);
+      return [];
+    }
+  }
+
+  static Future<MapEntry<String?, double>> _classifyBrand(img.Image croppedImage, String productType) async {
+    if (!_brandModelMap.containsKey(productType)) {
+      return const MapEntry(null, 0.0);
+    }
+    
+    try {
+      // Lazy load brand interpreter
+      if (!_brandInterpreters.containsKey(productType)) {
+        final modelFile = _brandModelMap[productType]!;
+        _brandInterpreters[productType] = await Interpreter.fromAsset('assets/models/$modelFile');
+        
+        final labelsFile = "${productType}_labels.txt";
+        final labelsData = await rootBundle.loadString('assets/models/$labelsFile');
+        _brandLabels[productType] = labelsData.split('\n').where((s) => s.trim().isNotEmpty).map((s) => s.trim()).toList();
+        print('✅ Loaded brand model for $productType');
+      }
+      
+      final interpreter = _brandInterpreters[productType]!;
+      final labels = _brandLabels[productType]!;
+      
+      // Get input size
+      final inputShape = interpreter.getInputTensor(0).shape;
+      final inputSize = inputShape[1];
+      
+      // Resize and Preprocess
+      final resized = img.copyResize(croppedImage, width: inputSize, height: inputSize);
+      final input = _preprocessImage(resized);
+      
+      // Run Inference
+      final output = List.generate(1, (_) => List.filled(labels.length, 0.0));
+      interpreter.run(input, output);
+      
+      // Find max score
+      final scores = output[0] as List<double>;
+      var maxScore = 0.0;
+      var maxIndex = 0;
+      
+      for (var i = 0; i < scores.length; i++) {
+        if (scores[i] > maxScore) {
+          maxScore = scores[i];
+          maxIndex = i;
+        }
+      }
+      
+      return MapEntry(labels[maxIndex], maxScore);
+    } catch (e) {
+      print('❌ Brand classification error: $e');
+      return const MapEntry(null, 0.0);
+    }
+  }
+
+  static List<List<List<List<double>>>> _preprocessImage(img.Image image) {
+    // Convert to [1, size, size, 3] normalized float32
+    final input = List.generate(1, (i) => List.generate(
+      image.height, (y) => List.generate(
+        image.width, (x) {
+          final pixel = image.getPixel(x, y);
+          // img package returns r, g, b, a based on format, but usually we can access components
+          // Current image package version (4.x) access
+          return [
+            pixel.r / 255.0,
+            pixel.g / 255.0,
+            pixel.b / 255.0
+          ];
+        }
+      )
+    ));
+    return input;
+  }
+
+  static List<Detection> _parseYOLOOutput(List<dynamic> output, double threshold, int imageWidth, int imageHeight) {
+    final detections = <Detection>[];
+    
+    // Output is [8400, 85] (for COCO 80 classes + 5)
+    // Actually our model output shape is likely [num_predictions, num_values] or [num_values, num_predictions]
+    // YOLOv8 usually outputs [1, 4+num_classes, 8400] -> Requires Transpose if so
+    // But Kotlin code processed it as [prediction_index][value_index]
+    // Let's assume Kotlin Code was correct: [num_predictions][num_values]
+    
+    for (var i = 0; i < output.length; i++) {
+        final prediction = output[i] as List<dynamic>;
+        
+        // [x, y, w, h, objectness, ...class_scores]
+        final x = prediction[0] as double;
+        final y = prediction[1] as double;
+        final w = prediction[2] as double;
+        final h = prediction[3] as double;
+        final objectness = prediction[4] as double;
+        
+        // Find max class
+        var maxClassScore = 0.0;
+        var maxClassIndex = 0;
+        
+        // Classes start at index 5
+        for (var j = 5; j < prediction.length; j++) {
+            final score = prediction[j] as double;
+            if (score > maxClassScore) {
+                maxClassScore = score;
+                maxClassIndex = j - 5;
+            }
+        }
+        
+        final confidence = objectness * maxClassScore;
+        
+        if (confidence >= threshold) {
+            // Convert to pixels
+            final xCenter = x * imageWidth;
+            final yCenter = y * imageHeight;
+            final width = w * imageWidth;
+            final height = h * imageHeight;
+            
+            final xLeft = xCenter - (width / 2);
+            final yTop = yCenter - (height / 2);
+            
+            final label = maxClassIndex < _yoloLabels.length ? _yoloLabels[maxClassIndex] : 'unknown';
+            
+            detections.add(Detection(
+              name: label,
+              confidence: confidence,
+              bbox: [xLeft, yTop, width, height],
+            ));
+        }
+    }
+    
+    // In a real app, perform NMS (Non-Maximum Suppression) here
+    // For simplicity, we just return all filtered by threshold for now or simple sort
+    detections.sort((a, b) => b.confidence.compareTo(a.confidence));
+    
+    // Basic NMS to remove duplicates
+    final result = <Detection>[];
+    for (var det in detections) {
+        bool overlap = false;
+        for (var existing in result) {
+             if (_iou(det.bbox, existing.bbox) > 0.5) {
+                 overlap = true;
+                 break;
+             }
+        }
+        if (!overlap) {
+            result.add(det);
+        }
+    }
+    
+    return result;
+  }
+  
+  static double _iou(List<double> box1, List<double> box2) {
+      final x1 = max(box1[0], box2[0]);
+      final y1 = max(box1[1], box2[1]);
+      final x2 = min(box1[0] + box1[2], box2[0] + box2[2]);
+      final y2 = min(box1[1] + box1[3], box2[1] + box2[3]);
+      
+      if (x2 < x1 || y2 < y1) return 0.0;
+      
+      final intersection = (x2 - x1) * (y2 - y1);
+      final area1 = box1[2] * box1[3];
+      final area2 = box2[2] * box2[3];
+      
+      return intersection / (area1 + area2 - intersection);
+  }
+
+  static void dispose() {
+    _yoloInterpreter?.close();
+    for (var interpreter in _brandInterpreters.values) {
+      interpreter.close();
+    }
+  }
+}

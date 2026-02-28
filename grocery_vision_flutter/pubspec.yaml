@@ -1,0 +1,58 @@
+name: groceye
+description: Groceye - Object detection and text recognition app
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Camera - using stable version
+  camera: ^0.10.5+9
+  
+  # Text-to-speech
+  flutter_tts: ^4.0.2
+  
+  # Audio feedback
+  # audioplayers: ^6.0.0  # Temporarily disabled due to Gradle plugin compatibility issue
+  
+  # Permissions
+  permission_handler: ^11.3.1
+  
+  # First launch detection
+  shared_preferences: ^2.2.2
+  
+  # Keep screen on during scanning
+  wakelock_plus: ^1.2.0
+  
+  # Machine Learning (Direct TFLite)
+  tflite_flutter: ^0.11.0
+  image: ^4.1.7
+  
+  # OCR Text Recognition (Enabled)
+  google_mlkit_text_recognition: ^0.13.0
+  
+  # Date formatting
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/
+    - assets/models/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#FF4444"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"

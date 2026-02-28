@@ -1,0 +1,5 @@
+bread
+canned_food
+chili_sauce
+ketchup
+soy_sauce
