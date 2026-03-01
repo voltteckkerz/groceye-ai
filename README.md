@@ -1,111 +1,154 @@
-# 📱 Grocery Vision Flutter
+# 🛒 GrocEye – Grocery Items Identifier for Blind People
 
-A native Flutter object detection app with real-time camera processing and accessibility features.
+GrocEye is an AI-powered mobile application designed to assist visually impaired individuals in identifying grocery items through real-time object detection and text recognition.
 
-## ✨ Features
+Built using **Flutter**, **TensorFlow Lite**, and **Text-to-Speech (TTS)**, the app enables users to scan products and receive instant audio feedback — helping them shop more independently.
 
-- 📷 **Real-time Object Detection** using Roboflow API
-- 🎯 **Visual Overlays** with bounding boxes and confidence scores
-- 🔊 **Text-to-Speech** announcements for detected objects
-- ⏸️ **Pause/Resume** controls for detection
-- ♿ **Accessibility** features with screen reader support
-- 🌙 **Dark Mode** UI
+---
 
-## 🚀 Getting Started
+## 📱 Key Features
 
-### Prerequisites
+### 🔍 Dual Detection Mode
+- **Item Mode** – Detects grocery products using object recognition.
+- **Label Mode** – Reads product labels using OCR text detection.
 
-- Flutter SDK 3.0 or higher
-- Android Studio / Xcode
-- Android device or iOS device
+Users can switch modes using gestures:
+- Swipe Right → Item Mode
+- Swipe Left → Label Mode
 
-### Installation
+---
 
-1. **Clone or navigate to the project**:
-   ```bash
-   cd grocery_vision_flutter
-   ```
+### 🧠 AI-Powered Recognition
+- Uses TensorFlow Lite models for:
+  - Grocery type detection
+  - Brand identification
+- Real-time camera processing
 
-2. **Install dependencies**:
-   ```bash
-   flutter pub get
-   ```
+---
 
-3. **Run the app**:
-   ```bash
-   # On connected Android device
-   flutter run
-   
-   # On iOS device (macOS only)
-   flutter run --device-id=<your-device-id>
-   ```
+### 🔊 Audio Feedback
+- Identified items are spoken aloud using Text-to-Speech
+- Adjustable speech rate available in Settings
 
-## 📱 How to Use
+---
 
-1. **Grant Camera Permission** when prompted
-2. **Point camera** at objects (controllers, groceries, etc.)
-3. **Wait ~10 seconds** for detection to run
-4. **Listen** for voice announcements
-5. **Tap PAUSE** to stop detection temporarily
-6. **Tap RESUME** to continue
+### ✋ Accessibility Gesture Controls
+- Double tap → Pause / Resume detection
+- Swipe gestures → Mode switching
+- Designed for blind-friendly interaction
 
-## 🏗️ Project Structure
+---
+
+### 🌐 Multi-Language Support
+Users can change language directly from the Home Page.
+
+---
+
+### 💾 Saved Items
+Detected items can be stored and reviewed later via the Saved Page.
+
+---
+
+### 📖 Built-in Tutorial
+Step-by-step guidance available for first-time users.
+
+---
+
+## 🏗️ Tech Stack
+
+| Technology | Usage |
+|---|---|
+| Flutter | Mobile UI Framework |
+| TensorFlow Lite | Object Detection |
+| OCR | Text Recognition |
+| Text-to-Speech | Audio Output |
+
+---
+
+## 📂 Project Structure
 
 ```
 lib/
-├── main.dart                    # App entry point
-├── config/
-│   └── app_config.dart         # Configuration & API keys
-├── models/
-│   └── detection.dart          # Detection data model
-├── screens/
-│   └── camera_screen.dart      # Main camera & detection screen
-├── services/
-│   ├── audio_service.dart      # TTS & audio feedback
-│   └── roboflow_service.dart   # Roboflow API integration
-└── widgets/
-    ├── control_button.dart     # Pause/Resume button
-    └── detection_overlay.dart  # Bounding box overlays
+ ├── models/
+ │   ├── detection.dart
+ │   ├── recognized_text.dart
+ │   ├── saved_item.dart
+ │   └── scan_mode.dart
+ │
+ ├── screens/
+ │   ├── camera_screen.dart
+ │   ├── home_screen.dart
+ │   ├── favorites_screen.dart
+ │   ├── info_screen.dart
+ │   ├── item_detail_screen.dart
+ │   ├── onboarding_screen.dart
+ │   └── settings_screen.dart
+ │
+ ├── services/
+ │   ├── audio_service.dart
+ │   ├── favorites_service.dart
+ │   ├── language_service.dart
+ │   ├── settings_service.dart
+ │   ├── text_recognition_service.dart
+ │   └── tflite_service.dart
+ │
+ ├── widgets/
+ │   ├── control_button.dart
+ │   ├── detection_overlay.dart
+ │   ├── mode_toggle_switch.dart
+ │   └── text_overlay.dart
+ │
+ └── main.dart
 ```
 
-## 🔧 Configuration
+```
+assets/
+ ├── icons/
+ │   └── app_icon.png
+ │
+ └── models/
+     ├── grocery_type_yolo.tflite
+     ├── bread_brand_cnn.tflite
+     ├── canned_food_brand_cnn.tflite
+     ├── chili_sauce_brand_cnn.tflite
+     ├── ketchup_brand_cnn.tflite
+     ├── soy_sauce_brand_cnn.tflite
+     └── labels.txt files
+```
 
-Edit `lib/config/app_config.dart` to customize:
+---
 
-- **Detection interval** (default: 10 seconds)
-- **Confidence threshold** (default: 0.5)
-- **Speech rate** and cooldown
-- **Roboflow API** credentials
+## 🚀 How It Works
 
-## 📦 Dependencies
+1. User opens Scanner
+2. Select detection mode (Item / Label)
+3. Camera analyzes object
+4. AI processes image
+5. System identifies item
+6. Audio feedback announces result
 
-- **camera**: Camera preview and image capture
-- **http**: API requests to Roboflow
-- **flutter_tts**: Text-to-speech announcements
-- **audioplayers**: Sound effects
-- **permission_handler**: Runtime permissions
+---
 
-## 🎯 Roboflow Integration
+## 🎯 Project Objective
 
-This app uses Roboflow's Workflow API for object detection:
+To enhance independence and accessibility for visually impaired individuals by providing a smart grocery identification assistant powered by AI.
 
-- **Workspace**: test-ix1ql
-- **Workflow**: find-controllers
-- **API**: Processes images and returns detections with bounding boxes
+---
 
-## 🚧 Future Enhancements
+## 👨‍💻 Developed As
 
-- [ ] On-device TensorFlow Lite models (offline detection)
-- [ ] Custom object training
-- [ ] Detection history
-- [ ] Export detection logs
-- [ ] Multiple language support
+Final Year Project  
+Bachelor of Information Technology
 
-## 📄 License
+---
 
-This project is open source.
+## 🔮 Future Improvements
+- Barcode scanning
+- Expiry date detection
+- Nutrition label reading
+- Cloud-based model updates
 
-## 🙏 Credits
+---
 
-- Built with Flutter
-- Object detection by Roboflow
+## 📌 License
+This project is developed for academic purposes.
